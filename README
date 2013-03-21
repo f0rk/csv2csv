@@ -1,0 +1,3 @@
+Convert the delimiter or quote character of a CSV file.
+
+Requires perl, Text::CSV, and Getopt::Long.

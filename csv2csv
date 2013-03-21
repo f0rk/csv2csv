@@ -1,0 +1,79 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use autodie;
+
+use IO::File;
+use IO::Handle;
+
+use Getopt::Long;
+use Text::CSV;
+
+my $stdin = IO::Handle->new()->fdopen(fileno(STDIN), "r");
+my $stdout = IO::Handle->new()->fdopen(fileno(STDOUT), "w");
+my $stderr = IO::Handle->new()->fdopen(fileno(STDERR), "w");
+
+my $usage = "usage: csv2csv --in-delimiter DELIM \\\n"
+            . "    --in-file FILE \\\n"
+            . "    --in-quote QUOTE \\\n"
+            . "    --out-delimiter DELIM \\\n"
+            . "    --out-file FILE \\\n"
+            . "    --out-quote QUOTE \\\n";
+
+my $in_delimiter;
+my $in_file;
+my $in_quote;
+my $out_delimiter;
+my $out_file;
+my $out_quote;
+
+Getopt::Long::Configure("bundling");
+my $result = GetOptions("in-delimiter=s" => \$in_delimiter,
+                        "in-file=s" => \$in_file,
+                        "in-quote=s" => \$in_quote,
+                        "out-delimiter=s" => \$out_delimiter,
+                        "out-file=s" => \$out_file,
+                        "out-quote=s" => \$out_quote);
+if (!$result) {
+    $stderr->print("ERROR: illegal configuration\n");
+    die($usage);
+}
+
+$in_delimiter //= ",";
+if ($in_delimiter eq "TAB" || $in_delimiter eq "\\t") { $in_delimiter = "\t"; }
+$in_quote //= '"';
+if ($in_quote eq "NONE") { $in_quote = undef; }
+my $in_config = {
+    binary => 1,
+    sep_char => $in_delimiter,
+    quote_char => $in_quote,
+};
+
+my $in_handle = $stdin;
+if (defined($in_file)) {
+    $in_handle = IO::File->new($in_file, "r");
+}
+
+$out_delimiter //= "|";
+if ($out_delimiter eq "TAB" || $out_delimiter eq "\\t") { $out_delimiter = "\t"; }
+$out_quote //= '"';
+if ($out_quote eq "NONE") { $out_quote = undef; }
+my $out_config = {
+    binary => 1,
+    sep_char => $out_delimiter,
+    quote_char => $out_quote,
+};
+
+my $out_handle = $stdout;
+if (defined($out_file)) {
+    $out_handle = IO::File->new($out_file, "w");
+}
+
+my $in_csv = Text::CSV->new($in_config);
+my $out_csv = Text::CSV->new($out_config);
+
+while (my $row = $in_csv->getline($in_handle)) {
+    $out_csv->print($out_handle, $row);
+}
+
