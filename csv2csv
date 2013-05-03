@@ -96,6 +96,17 @@ my $in_csv = Text::CSV->new($in_config);
 my $out_csv = Text::CSV->new($out_config);
 
 while (my $row = $in_csv->getline($in_handle)) {
-    $out_csv->print($out_handle, $row);
+    my $status = $out_csv->print($out_handle, $row);
+    if (!$status) {
+        $stderr->print($out_csv->error_diag());
+        exit(1);
+    }
 }
+
+if (!$in_csv->status() && !$in_csv->eof()) {
+    $stderr->print($in_csv->error_diag()."\n");
+    exit(1);
+}
+
+$out_handle->close();
 
