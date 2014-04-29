@@ -31,6 +31,7 @@ my $out_delimiter;
 my $out_file;
 my $out_quote;
 my $out_eol;
+my $transform;
 
 Getopt::Long::Configure("bundling");
 my $result = GetOptions("in-delimiter=s" => \$in_delimiter,
@@ -40,7 +41,8 @@ my $result = GetOptions("in-delimiter=s" => \$in_delimiter,
                         "out-delimiter=s" => \$out_delimiter,
                         "out-file=s" => \$out_file,
                         "out-quote=s" => \$out_quote,
-                        "out-eol=s" => \$out_eol);
+                        "out-eol=s" => \$out_eol,
+                        "transform=s" => \$transform);
 if (!$result) {
     $stderr->print("ERROR: illegal configuration\n");
     die($usage);
@@ -87,6 +89,11 @@ if (defined($out_eol)) {
     $out_config->{eol} = "\n";
 }
 
+if (defined($transform)) {
+    $transform = 'return sub { my $row = shift; ' . $transform . '; return $row }';
+    $transform = eval $transform;
+}
+
 my $out_handle = $stdout;
 if (defined($out_file)) {
     $out_handle = IO::File->new($out_file, "w");
@@ -96,6 +103,11 @@ my $in_csv = Text::CSV->new($in_config);
 my $out_csv = Text::CSV->new($out_config);
 
 while (my $row = $in_csv->getline($in_handle)) {
+
+    if (defined($transform)) {
+        $row = &$transform($row);
+    }
+
     my $status = $out_csv->print($out_handle, $row);
     if (!$status) {
         $stderr->print($out_csv->error_diag());
