@@ -70,7 +70,7 @@ if (defined($in_file)) {
     $in_handle = IO::File->new($in_file, "r");
 }
 
-$out_delimiter //= "|";
+$out_delimiter //= ",";
 if ($out_delimiter eq "TAB" || $out_delimiter eq "\\t") { $out_delimiter = "\t"; }
 $out_quote //= '"';
 if ($out_quote eq "NONE") { $out_quote = undef; }
