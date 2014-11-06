@@ -108,6 +108,10 @@ while (my $row = $in_csv->getline($in_handle)) {
         $row = &$transform($row);
     }
 
+    if (!defined($row)) {
+        next;
+    }
+
     my $status = $out_csv->print($out_handle, $row);
     if (!$status) {
         $stderr->print($out_csv->error_diag());
