@@ -21,7 +21,9 @@ my $usage = "usage: csv2csv --in-delimiter DELIM \\\n"
             . "    --out-delimiter DELIM \\\n"
             . "    --out-file FILE \\\n"
             . "    --out-quote QUOTE \\\n"
-            . "    --out-eol EOL \\\n";
+            . "    --out-eol EOL \\\n"
+            . "    --transform EXPR \\\n"
+            . "    --with-headers \\\n";
 
 my $in_delimiter;
 my $in_file;
@@ -32,6 +34,7 @@ my $out_file;
 my $out_quote;
 my $out_eol;
 my $transform;
+my $with_headers;
 
 Getopt::Long::Configure("bundling");
 my $result = GetOptions("in-delimiter=s" => \$in_delimiter,
@@ -42,7 +45,8 @@ my $result = GetOptions("in-delimiter=s" => \$in_delimiter,
                         "out-file=s" => \$out_file,
                         "out-quote=s" => \$out_quote,
                         "out-eol=s" => \$out_eol,
-                        "transform=s" => \$transform);
+                        "transform=s" => \$transform,
+                        "with-headers" => \$with_headers);
 if (!$result) {
     $stderr->print("ERROR: illegal configuration\n");
     die($usage);
@@ -102,10 +106,29 @@ if (defined($out_file)) {
 my $in_csv = Text::CSV->new($in_config);
 my $out_csv = Text::CSV->new($out_config);
 
+my $headers;
+
 while (my $row = $in_csv->getline($in_handle)) {
 
+    if (defined($with_headers) && !defined($headers)) {
+        $headers = $row;
+    }
+
     if (defined($transform)) {
-        $row = &$transform($row);
+        # headers were given, zip to hash and use that instead
+        if (defined($with_headers)) {
+            my %hash;
+            @hash{@$headers} = @$row;
+            my $href = &$transform(\%hash);
+            $row = [];
+            for my $h (@$headers) {
+                if (defined($href->{$h})) {
+                    push(@$row, $href->{$h});
+                }
+            }
+        } else {
+            $row = &$transform($row);
+        }
     }
 
     if (!defined($row)) {
