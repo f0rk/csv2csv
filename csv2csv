@@ -120,10 +120,14 @@ while (my $row = $in_csv->getline($in_handle)) {
             my %hash;
             @hash{@$headers} = @$row;
             my $href = &$transform(\%hash);
-            $row = [];
-            for my $h (@$headers) {
-                if (defined($href->{$h})) {
-                    push(@$row, $href->{$h});
+            if (!defined($href)) {
+                $row = undef;
+            } else {
+                $row = [];
+                for my $h (@$headers) {
+                    if (defined($href->{$h})) {
+                        push(@$row, $href->{$h});
+                    }
                 }
             }
         } else {
