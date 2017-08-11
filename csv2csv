@@ -53,7 +53,7 @@ if (!$result) {
 }
 
 $in_delimiter //= ",";
-if ($in_delimiter eq "TAB" || $in_delimiter eq "\\t") { $in_delimiter = "\t"; }
+if ($in_delimiter eq "TAB" || $in_delimiter eq "tab" || $in_delimiter eq "\\t") { $in_delimiter = "\t"; }
 $in_quote //= '"';
 if ($in_quote eq "NONE") { $in_quote = undef; }
 my $in_config = {
@@ -75,7 +75,7 @@ if (defined($in_file)) {
 }
 
 $out_delimiter //= ",";
-if ($out_delimiter eq "TAB" || $out_delimiter eq "\\t") { $out_delimiter = "\t"; }
+if ($out_delimiter eq "TAB" || $out_delimiter eq "tab" || $out_delimiter eq "\\t") { $out_delimiter = "\t"; }
 $out_quote //= '"';
 if ($out_quote eq "NONE") { $out_quote = undef; }
 my $out_config = {
