@@ -1,155 +1,46 @@
-#!/usr/bin/env perl
+#!/usr/bin/env python
 
-use strict;
-use warnings;
-use autodie;
+import argparse
+import csv
+import sys
 
-use IO::File;
-use IO::Handle;
 
-use Getopt::Long;
-use Text::CSV;
+parser = argparse.ArgumentParser()
+parser.add_argument("--in-file", default="-", help="input file")
+parser.add_argument("--in-delimiter", default=",", help="input delimiter")
+parser.add_argument("--in-quote", default='"', help="input quote")
+parser.add_argument("--out-file", default="-", help="output file")
+parser.add_argument("--out-delimiter", default=",", help="output delimiter")
+parser.add_argument("--out-quote", default='"', help="output quote")
 
-my $stdin = IO::Handle->new()->fdopen(fileno(STDIN), "r");
-my $stdout = IO::Handle->new()->fdopen(fileno(STDOUT), "w");
-my $stderr = IO::Handle->new()->fdopen(fileno(STDERR), "w");
+args = parser.parse_args()
 
-my $usage = "usage: csv2csv --in-delimiter DELIM \\\n"
-            . "    --in-file FILE \\\n"
-            . "    --in-quote QUOTE \\\n"
-            . "    --in-eol EOL \\\n"
-            . "    --out-delimiter DELIM \\\n"
-            . "    --out-file FILE \\\n"
-            . "    --out-quote QUOTE \\\n"
-            . "    --out-eol EOL \\\n"
-            . "    --transform EXPR \\\n"
-            . "    --with-headers \\\n";
 
-my $in_delimiter;
-my $in_file;
-my $in_quote;
-my $in_eol;
-my $out_delimiter;
-my $out_file;
-my $out_quote;
-my $out_eol;
-my $transform;
-my $with_headers;
+def process_delimiter(delimiter):
+    if delimiter.lower() == "tab" or delimiter == "\\t":
+        delimiter = "\t"
+    return delimiter
 
-Getopt::Long::Configure("bundling");
-my $result = GetOptions("in-delimiter=s" => \$in_delimiter,
-                        "in-file=s" => \$in_file,
-                        "in-quote=s" => \$in_quote,
-                        "in-eol=s" => \$in_eol,
-                        "out-delimiter=s" => \$out_delimiter,
-                        "out-file=s" => \$out_file,
-                        "out-quote=s" => \$out_quote,
-                        "out-eol=s" => \$out_eol,
-                        "transform=s" => \$transform,
-                        "with-headers" => \$with_headers);
-if (!$result) {
-    $stderr->print("ERROR: illegal configuration\n");
-    die($usage);
-}
 
-$in_delimiter //= ",";
-if ($in_delimiter eq "TAB" || $in_delimiter eq "tab" || $in_delimiter eq "\\t") { $in_delimiter = "\t"; }
-$in_quote //= '"';
-if ($in_quote eq "NONE") { $in_quote = undef; }
-my $in_config = {
-    binary => 1,
-    sep_char => $in_delimiter,
-    quote_char => $in_quote,
-};
+in_delimiter = process_delimiter(args.in_delimiter)
+out_delimiter = process_delimiter(args.out_delimiter)
 
-if (defined($in_eol)) {
-    if ($in_eol eq "\\r\\n" || $in_eol eq "WINDOWS") { $in_eol = "\r\n"; }
-    if ($in_eol eq "\\r" || $in_eol eq "MAC") { $in_eol = "\r"; }
-    if ($in_eol eq "\\n" || $in_eol eq "UNIX") { $in_eol = "\n"; }
-    $in_config->{eol} = $in_eol;
-}
 
-my $in_handle = $stdin;
-if (defined($in_file)) {
-    $in_handle = IO::File->new($in_file, "r");
-}
+if args.in_file == "-":
+    in_fp = sys.stdin
+else:
+    in_fp = open(args.in_file, "r")
 
-$out_delimiter //= ",";
-if ($out_delimiter eq "TAB" || $out_delimiter eq "tab" || $out_delimiter eq "\\t") { $out_delimiter = "\t"; }
-$out_quote //= '"';
-if ($out_quote eq "NONE") { $out_quote = undef; }
-my $out_config = {
-    binary => 1,
-    sep_char => $out_delimiter,
-    quote_char => $out_quote,
-};
 
-if (defined($out_eol)) {
-    if ($out_eol eq "\\r\\n" || $out_eol eq "WINDOWS") { $out_eol = "\r\n"; }
-    if ($out_eol eq "\\r" || $out_eol eq "MAC") { $out_eol = "\r"; }
-    if ($out_eol eq "\\n" || $out_eol eq "UNIX") { $out_eol = "\n"; }
-    $out_config->{eol} = $out_eol;
-} else {
-    $out_config->{eol} = "\n";
-}
+if args.out_file == "-":
+    out_fp = sys.stdout
+else:
+    out_fp = open(args.out_file, "w")
 
-if (defined($transform)) {
-    $transform = 'return sub { my $row = shift; ' . $transform . '; return $row }';
-    $transform = eval $transform;
-}
 
-my $out_handle = $stdout;
-if (defined($out_file)) {
-    $out_handle = IO::File->new($out_file, "w");
-}
+in_reader = csv.reader(in_fp, delimiter=in_delimiter, quotechar=args.in_quote)
 
-my $in_csv = Text::CSV->new($in_config);
-my $out_csv = Text::CSV->new($out_config);
+out_writer = csv.writer(out_fp, delimiter=out_delimiter, quotechar=args.out_quote)
 
-my $headers;
-
-while (my $row = $in_csv->getline($in_handle)) {
-
-    if (defined($with_headers) && !defined($headers)) {
-        $headers = $row;
-    }
-
-    if (defined($transform)) {
-        # headers were given, zip to hash and use that instead
-        if (defined($with_headers)) {
-            my %hash;
-            @hash{@$headers} = @$row;
-            my $href = &$transform(\%hash);
-            if (!defined($href)) {
-                $row = undef;
-            } else {
-                $row = [];
-                for my $h (@$headers) {
-                    if (defined($href->{$h})) {
-                        push(@$row, $href->{$h});
-                    }
-                }
-            }
-        } else {
-            $row = &$transform($row);
-        }
-    }
-
-    if (!defined($row)) {
-        next;
-    }
-
-    my $status = $out_csv->print($out_handle, $row);
-    if (!$status) {
-        $stderr->print($out_csv->error_diag());
-        exit(1);
-    }
-}
-
-if (!$in_csv->status() && !$in_csv->eof()) {
-    $stderr->print($in_csv->error_diag()."\n");
-    exit(1);
-}
-
-$out_handle->close();
-
+for row in in_reader:
+    out_writer.writerow(row)
